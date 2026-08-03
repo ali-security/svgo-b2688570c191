@@ -19,16 +19,12 @@ jobs:
           node-version: 16
           registry-url: https://registry.npmjs.org
       - run: yarn install
-      - run: |
-          VERSION=$(jq -r .version <package.json)
-          if [[ "$VERSION" = *"-rc."* ]]; then
-            yarn npm publish --access public --tag rc
-          else
-            LATEST_VERSION="$(gh release view --json tagName -q '.tagName' --repo ${{ github.repository }})"
-            if [[ "${{ github.ref_name }}" = "$LATEST_VERSION" ]]; then
-              yarn npm publish --access public
-            else
-              MAJOR="$(awk -F '.' '{ print $1 }' <<< "$VERSION")"
-              yarn npm publish --access public --tag "v$MAJOR"
-            fi
-          fi
+      # Publishing needs npm OIDC / registry credentials the fork does not have.
+      # Pack the identical tarball instead: `dist/` is what prepublishOnly builds.
+      - run: node node_modules/rollup/dist/bin/rollup -c
+      - run: npm pack --ignore-scripts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-tarball
+          path: svgo-*.tgz
+          if-no-files-found: error
